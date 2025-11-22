@@ -6,7 +6,9 @@ const MetricsPanel = ({ metrics, solarData }) => {
     return (
       <div className="metrics-panel">
         <div className="metrics-loading">
-          <p>Loading metrics...</p>
+          <div className="loading-spinner"></div>
+          <p>Loading solar panel metrics...</p>
+          <p className="loading-hint">Connecting to panel data stream...</p>
         </div>
       </div>
     );

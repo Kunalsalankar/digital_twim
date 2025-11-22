@@ -171,10 +171,28 @@
 
 .metrics-loading {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 200px;
   color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.metrics-loading .loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+.metrics-loading .loading-hint {
+  margin-top: 0.5rem;
+  opacity: 0.6;
+  font-size: 0.9rem;
 }
 
 /* Responsive design */

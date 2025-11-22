@@ -23,9 +23,13 @@ function App() {
     // Use polling instead of SSE for Vercel compatibility
     const fetchPanelData = async () => {
       try {
+        console.log('🔄 Fetching panel data from:', `${API_URL}/api/solar/live-panels`);
         const response = await fetch(`${API_URL}/api/solar/live-panels`);
+        console.log('📡 Response status:', response.status);
+        
         if (response.ok) {
           const data = await response.json();
+          console.log('📊 Received data:', data);
           
           // Update panel data
           setPanelData(data.panels);
@@ -51,10 +55,11 @@ function App() {
           });
           
         } else {
+          console.error('❌ API response not ok:', response.status, response.statusText);
           setConnectionStatus('error');
         }
       } catch (error) {
-        console.error('Error fetching panel data:', error);
+        console.error('❌ Error fetching panel data:', error);
         setConnectionStatus('error');
       }
     };
