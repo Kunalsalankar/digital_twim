@@ -9,7 +9,7 @@ import { API_URL } from './config';
 function App() {
   const [solarData, setSolarData] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const [simulationStatus, setSimulationStatus] = useState({
+  const [simulationStatus] = useState({
     isRunning: false,
     currentIndex: 0,
     totalDataPoints: 0
