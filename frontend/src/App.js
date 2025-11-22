@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import SimulationControls from './components/SimulationControls';
+import PanelGrid from './components/PanelGrid';
+import MetricsPanel from './components/MetricsPanel';
 
 function App() {
   const [solarData, setSolarData] = useState(null);
@@ -12,6 +14,9 @@ function App() {
     totalDataPoints: 0
   });
   const [dataHistory, setDataHistory] = useState([]);
+  const [panelData, setPanelData] = useState([]);
+  const [metrics, setMetrics] = useState(null);
+  const [viewMode, setViewMode] = useState('panels'); // 'panels' or 'dashboard'
 
   useEffect(() => {
     // Connect to Server-Sent Events stream
@@ -33,7 +38,7 @@ function App() {
             totalDataPoints: data.totalDataPoints,
             isRunning: data.isRunning
           }));
-        } else if (data.type === 'data') {
+        } else if (data.type === 'data' || data.type === 'combined') {
           // Update current data
           setSolarData(data);
           setSimulationStatus(prev => ({
@@ -43,11 +48,32 @@ function App() {
             isRunning: true
           }));
 
+          // Update panel data if available
+          if (data.panels) {
+            setPanelData(data.panels);
+          }
+          
+          // Update metrics if available
+          if (data.metrics) {
+            setMetrics(data.metrics);
+          }
+
           // Add to history (keep last 60 data points for charts)
           setDataHistory(prev => {
             const newHistory = [...prev, data];
             return newHistory.slice(-60); // Keep only last 60 points
           });
+        } else if (data.type === 'panels') {
+          // Panel-only data (no CSV data)
+          if (data.panels) {
+            setPanelData(data.panels);
+          }
+          
+          if (data.metrics) {
+            setMetrics(data.metrics);
+          }
+          
+          setSimulationStatus(prev => ({ ...prev, isRunning: true }));
         } else if (data.type === 'stopped') {
           console.log('Simulation stopped:', data.message);
           setSimulationStatus(prev => ({ ...prev, isRunning: false }));
@@ -98,9 +124,25 @@ function App() {
     <div className="App">
       <header className="app-header">
         <h1>🌞 Solar Panel Digital Twin</h1>
-        <div className="connection-status">
-          <span className={`status-indicator ${connectionStatus}`}></span>
-          <span>{connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}</span>
+        <div className="header-controls">
+          <div className="view-toggle">
+            <button 
+              className={`toggle-btn ${viewMode === 'panels' ? 'active' : ''}`}
+              onClick={() => setViewMode('panels')}
+            >
+              Panel Grid
+            </button>
+            <button 
+              className={`toggle-btn ${viewMode === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setViewMode('dashboard')}
+            >
+              Dashboard
+            </button>
+          </div>
+          <div className="connection-status">
+            <span className={`status-indicator ${connectionStatus}`}></span>
+            <span>{connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}</span>
+          </div>
         </div>
       </header>
 
@@ -111,11 +153,24 @@ function App() {
           onStop={handleStopSimulation}
         />
         
-        <Dashboard 
-          solarData={solarData}
-          dataHistory={dataHistory}
-          connectionStatus={connectionStatus}
-        />
+        {viewMode === 'panels' ? (
+          <>
+            <MetricsPanel 
+              metrics={metrics}
+              solarData={solarData}
+            />
+            <PanelGrid 
+              panels={panelData}
+              metrics={metrics}
+            />
+          </>
+        ) : (
+          <Dashboard 
+            solarData={solarData}
+            dataHistory={dataHistory}
+            connectionStatus={connectionStatus}
+          />
+        )}
       </main>
     </div>
   );

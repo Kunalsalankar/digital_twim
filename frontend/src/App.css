@@ -21,6 +21,42 @@
   margin: 0;
 }
 
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
+.view-toggle {
+  display: flex;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+
+.toggle-btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.toggle-btn:hover {
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.toggle-btn.active {
+  background: #22c55e;
+  color: white;
+}
+
 .connection-status {
   display: flex;
   align-items: center;
@@ -77,7 +113,28 @@
     font-size: 1.5rem;
   }
   
+  .header-controls {
+    flex-direction: column;
+    gap: 1rem;
+  }
+  
+  .view-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+  
   .app-main {
     padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-controls {
+    gap: 0.75rem;
+  }
+  
+  .toggle-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.8rem;
   }
 }
