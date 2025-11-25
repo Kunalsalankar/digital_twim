@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import Dashboard from './components/Dashboard';
 import SimulationControls from './components/SimulationControls';
+import PanelGrid from './components/PanelGrid';
+import MetricsPanel from './components/MetricsPanel';
+import { API_URL } from './config';
+
+const UPDATE_INTERVAL_MS = 10000;
 
 function App() {
   const [solarData, setSolarData] = useState(null);
@@ -12,70 +17,80 @@ function App() {
     totalDataPoints: 0
   });
   const [dataHistory, setDataHistory] = useState([]);
+  const [panelData, setPanelData] = useState([]);
+  const [metrics, setMetrics] = useState(null);
+  const [viewMode, setViewMode] = useState('panels'); // 'panels' or 'dashboard'
 
   useEffect(() => {
-    // Connect to Server-Sent Events stream
-    const eventSource = new EventSource('http://localhost:3001/api/solar/stream');
-
-    eventSource.onopen = () => {
-      console.log('Connected to solar panel stream');
-      setConnectionStatus('connected');
-    };
-
-    eventSource.onmessage = (event) => {
+    // Use polling instead of SSE for Vercel compatibility
+    const fetchPanelData = async () => {
       try {
-        const data = JSON.parse(event.data);
+        console.log('🔄 Fetching panel data from:', `${API_URL}/api/solar/live-panels`);
+        const response = await fetch(`${API_URL}/api/solar/live-panels`);
+        console.log('📡 Response status:', response.status);
         
-        if (data.type === 'connected') {
-          console.log('Stream connected:', data.message);
-          setSimulationStatus(prev => ({
-            ...prev,
-            totalDataPoints: data.totalDataPoints,
-            isRunning: data.isRunning
-          }));
-        } else if (data.type === 'data') {
-          // Update current data
-          setSolarData(data);
-          setSimulationStatus(prev => ({
-            ...prev,
-            currentIndex: data.currentIndex,
-            totalDataPoints: data.totalPoints,
-            isRunning: true
-          }));
+        if (response.ok) {
+          const data = await response.json();
+          console.log('📊 Received data:', data);
+          
+          // Update panel data
+          setPanelData(data.panels);
+          setMetrics(data.metrics);
+          setConnectionStatus('connected');
 
-          // Add to history (keep last 60 data points for charts)
-          setDataHistory(prev => {
-            const newHistory = [...prev, data];
-            return newHistory.slice(-60); // Keep only last 60 points
-          });
-        } else if (data.type === 'stopped') {
-          console.log('Simulation stopped:', data.message);
-          setSimulationStatus(prev => ({ ...prev, isRunning: false }));
+          if (data.currentSolarData) {
+            setSolarData(data.currentSolarData);
+
+            setDataHistory(prev => {
+              const newHistory = [...prev, data.currentSolarData];
+              return newHistory.slice(-60);
+            });
+
+            setSimulationStatus(prev => ({
+              ...prev,
+              isRunning: true,
+              currentIndex: data.currentSolarData.currentIndex || prev.currentIndex,
+              totalDataPoints: data.currentSolarData.totalPoints || prev.totalDataPoints
+            }));
+          } else {
+            console.warn('⚠️ currentSolarData missing from API response');
+          }
+          
+        } else {
+          console.error('❌ API response not ok:', response.status, response.statusText);
+          setConnectionStatus('error');
         }
       } catch (error) {
-        console.error('Error parsing SSE data:', error);
+        console.error('❌ Error fetching panel data:', error);
+        setConnectionStatus('error');
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      setConnectionStatus('error');
-    };
+    // Initial fetch
+    fetchPanelData();
+    setConnectionStatus('connected');
+
+    // Set up polling interval
+    const interval = setInterval(fetchPanelData, UPDATE_INTERVAL_MS);
 
     // Cleanup on component unmount
     return () => {
-      eventSource.close();
+      clearInterval(interval);
     };
   }, []);
 
   const handleStartSimulation = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/solar/start', {
+      const response = await fetch(`${API_URL}/api/solar/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
       const result = await response.json();
       console.log('Start simulation:', result);
+      setSimulationStatus(prev => ({
+        ...prev,
+        isRunning: result.isRunning ?? true
+      }));
     } catch (error) {
       console.error('Error starting simulation:', error);
     }
@@ -83,12 +98,16 @@ function App() {
 
   const handleStopSimulation = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/solar/stop', {
+      const response = await fetch(`${API_URL}/api/solar/stop`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
       const result = await response.json();
       console.log('Stop simulation:', result);
+      setSimulationStatus(prev => ({
+        ...prev,
+        isRunning: result.isRunning ?? false
+      }));
     } catch (error) {
       console.error('Error stopping simulation:', error);
     }
@@ -98,9 +117,25 @@ function App() {
     <div className="App">
       <header className="app-header">
         <h1>🌞 Solar Panel Digital Twin</h1>
-        <div className="connection-status">
-          <span className={`status-indicator ${connectionStatus}`}></span>
-          <span>{connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}</span>
+        <div className="header-controls">
+          <div className="view-toggle">
+            <button 
+              className={`toggle-btn ${viewMode === 'panels' ? 'active' : ''}`}
+              onClick={() => setViewMode('panels')}
+            >
+              Panel Grid
+            </button>
+            <button 
+              className={`toggle-btn ${viewMode === 'dashboard' ? 'active' : ''}`}
+              onClick={() => setViewMode('dashboard')}
+            >
+              Dashboard
+            </button>
+          </div>
+          <div className="connection-status">
+            <span className={`status-indicator ${connectionStatus}`}></span>
+            <span>{connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}</span>
+          </div>
         </div>
       </header>
 
@@ -109,13 +144,27 @@ function App() {
           simulationStatus={simulationStatus}
           onStart={handleStartSimulation}
           onStop={handleStopSimulation}
+          updateIntervalMs={UPDATE_INTERVAL_MS}
         />
         
-        <Dashboard 
-          solarData={solarData}
-          dataHistory={dataHistory}
-          connectionStatus={connectionStatus}
-        />
+        {viewMode === 'panels' ? (
+          <>
+            <MetricsPanel 
+              metrics={metrics}
+              solarData={solarData}
+            />
+            <PanelGrid 
+              panels={panelData}
+              metrics={metrics}
+            />
+          </>
+        ) : (
+          <Dashboard 
+            solarData={solarData}
+            dataHistory={dataHistory}
+            connectionStatus={connectionStatus}
+          />
+        )}
       </main>
     </div>
   );

@@ -1,0 +1,5 @@
+{
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "frontend/build",
+  "framework": null
+}

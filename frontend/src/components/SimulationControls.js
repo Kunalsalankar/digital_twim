@@ -1,8 +1,9 @@
 import React from 'react';
 import './SimulationControls.css';
 
-const SimulationControls = ({ simulationStatus, onStart, onStop }) => {
+const SimulationControls = ({ simulationStatus, onStart, onStop, updateIntervalMs = 10000 }) => {
   const { isRunning, currentIndex, totalDataPoints } = simulationStatus;
+  const updateIntervalSeconds = (updateIntervalMs / 1000).toFixed(0);
 
   const progressPercentage = totalDataPoints > 0 
     ? ((currentIndex / totalDataPoints) * 100).toFixed(1)
@@ -71,7 +72,7 @@ const SimulationControls = ({ simulationStatus, onStart, onStop }) => {
             <div className="info-icon">⏱️</div>
             <div className="info-content">
               <div className="info-label">Update Interval</div>
-              <div className="info-value">1 second</div>
+              <div className="info-value">{updateIntervalSeconds} seconds</div>
             </div>
           </div>
           
