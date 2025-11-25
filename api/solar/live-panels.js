@@ -1,6 +1,93 @@
+import fs from 'fs';
+import path from 'path';
+
 // Global variables for panel simulation
 let panelData = [];
 const TOTAL_PANELS = 30;
+let csvData = [];
+let csvIndex = 0;
+let csvLoaded = false;
+
+const CSV_FILE_NAME = 'final.csv';
+
+function loadCsvData() {
+    if (csvLoaded) {
+        return;
+    }
+
+    const csvPath = path.join(process.cwd(), CSV_FILE_NAME);
+
+    try {
+        if (!fs.existsSync(csvPath)) {
+            console.error(`⚠️ CSV file ${CSV_FILE_NAME} not found at ${csvPath}`);
+            csvData = [];
+            csvLoaded = true;
+            return;
+        }
+
+        const fileContents = fs.readFileSync(csvPath, 'utf8');
+        const lines = fileContents.split(/\r?\n/).filter(Boolean);
+
+        if (lines.length <= 1) {
+            console.error('⚠️ CSV file has no data rows.');
+            csvData = [];
+            csvLoaded = true;
+            return;
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim());
+        const normalizeNumber = value => {
+            const parsed = parseFloat(value);
+            return Number.isFinite(parsed) ? parsed : 0;
+        };
+
+        csvData = lines.slice(1).map((line, index) => {
+            const values = line.split(',').map(v => v.trim());
+            const row = {};
+            headers.forEach((header, i) => {
+                row[header] = values[i] ?? '';
+            });
+
+            return {
+                id: index + 1,
+                timestamp: row.timestamp || new Date().toISOString(),
+                ActivePowerL3: normalizeNumber(row.ActivePowerL3),
+                CurrentL3: normalizeNumber(row.CurrentL3),
+                VoltageL3: normalizeNumber(row.VoltageL3),
+                IRRADIATION: normalizeNumber(row.IRRADIATION),
+                temp: normalizeNumber(row.temp)
+            };
+        });
+
+        csvLoaded = true;
+        console.log(`✅ Loaded ${csvData.length} rows from ${CSV_FILE_NAME}`);
+    } catch (error) {
+        console.error('❌ Error reading CSV file on Vercel function:', error);
+        csvData = [];
+        csvLoaded = true;
+    }
+}
+
+function getNextSolarDataPoint() {
+    loadCsvData();
+
+    if (csvData.length === 0) {
+        return null;
+    }
+
+    if (csvIndex >= csvData.length) {
+        csvIndex = 0;
+    }
+
+    const base = csvData[csvIndex];
+    csvIndex += 1;
+
+    return {
+        ...base,
+        currentIndex: csvIndex,
+        totalPoints: csvData.length
+    };
+}
 
 // Initialize panel data
 function initializePanels() {
@@ -88,10 +175,12 @@ export default function handler(req, res) {
     simulatePanelChanges();
     
     const metrics = getAggregatedMetrics();
+    const currentSolarData = getNextSolarDataPoint();
     
     res.status(200).json({
         panels: panelData,
         metrics: metrics,
+        currentSolarData,
         timestamp: new Date().toISOString()
     });
 }
