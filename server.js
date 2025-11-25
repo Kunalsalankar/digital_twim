@@ -138,12 +138,38 @@ function getAggregatedMetrics() {
     };
 }
 
+// Retrieve next solar data point from CSV
+function getNextSolarDataPoint() {
+    if (solarData.length === 0) {
+        return null;
+    }
+
+    if (currentIndex >= solarData.length) {
+        currentIndex = 0;
+        console.log('🔁 CSV data exhausted, looping back to first record');
+    }
+
+    const baseData = solarData[currentIndex];
+    const responseData = {
+        ...baseData,
+        currentIndex: currentIndex + 1,
+        totalPoints: solarData.length,
+        timestamp: baseData.timestamp || new Date().toISOString()
+    };
+
+    currentIndex++;
+
+    return responseData;
+}
+
 // API endpoint for live panel data
 app.get('/api/solar/live-panels', (req, res) => {
     const metrics = getAggregatedMetrics();
+    const currentSolarData = getNextSolarDataPoint();
     res.json({
         panels: panelData,
         metrics: metrics,
+        currentSolarData,
         timestamp: new Date().toISOString()
     });
 });

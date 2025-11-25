@@ -6,10 +6,12 @@ import PanelGrid from './components/PanelGrid';
 import MetricsPanel from './components/MetricsPanel';
 import { API_URL } from './config';
 
+const UPDATE_INTERVAL_MS = 10000;
+
 function App() {
   const [solarData, setSolarData] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('disconnected');
-  const [simulationStatus] = useState({
+  const [simulationStatus, setSimulationStatus] = useState({
     isRunning: false,
     currentIndex: 0,
     totalDataPoints: 0
@@ -34,25 +36,25 @@ function App() {
           // Update panel data
           setPanelData(data.panels);
           setMetrics(data.metrics);
-          
-          // Create mock solar data for dashboard compatibility
-          const mockSolarData = {
-            ActivePowerL3: parseFloat(data.metrics.totalPower) / 3,
-            CurrentL3: parseFloat(data.metrics.avgCurrent),
-            VoltageL3: parseFloat(data.metrics.avgVoltage),
-            IRRADIATION: 700 + Math.random() * 300,
-            temp: parseFloat(data.metrics.avgTemperature),
-            timestamp: data.timestamp
-          };
-          
-          setSolarData(mockSolarData);
           setConnectionStatus('connected');
-          
-          // Add to history for charts
-          setDataHistory(prev => {
-            const newHistory = [...prev, mockSolarData];
-            return newHistory.slice(-60);
-          });
+
+          if (data.currentSolarData) {
+            setSolarData(data.currentSolarData);
+
+            setDataHistory(prev => {
+              const newHistory = [...prev, data.currentSolarData];
+              return newHistory.slice(-60);
+            });
+
+            setSimulationStatus(prev => ({
+              ...prev,
+              isRunning: true,
+              currentIndex: data.currentSolarData.currentIndex || prev.currentIndex,
+              totalDataPoints: data.currentSolarData.totalPoints || prev.totalDataPoints
+            }));
+          } else {
+            console.warn('⚠️ currentSolarData missing from API response');
+          }
           
         } else {
           console.error('❌ API response not ok:', response.status, response.statusText);
@@ -68,8 +70,8 @@ function App() {
     fetchPanelData();
     setConnectionStatus('connected');
 
-    // Set up polling every 2 seconds
-    const interval = setInterval(fetchPanelData, 2000);
+    // Set up polling interval
+    const interval = setInterval(fetchPanelData, UPDATE_INTERVAL_MS);
 
     // Cleanup on component unmount
     return () => {
@@ -85,6 +87,10 @@ function App() {
       });
       const result = await response.json();
       console.log('Start simulation:', result);
+      setSimulationStatus(prev => ({
+        ...prev,
+        isRunning: result.isRunning ?? true
+      }));
     } catch (error) {
       console.error('Error starting simulation:', error);
     }
@@ -98,6 +104,10 @@ function App() {
       });
       const result = await response.json();
       console.log('Stop simulation:', result);
+      setSimulationStatus(prev => ({
+        ...prev,
+        isRunning: result.isRunning ?? false
+      }));
     } catch (error) {
       console.error('Error stopping simulation:', error);
     }
@@ -134,6 +144,7 @@ function App() {
           simulationStatus={simulationStatus}
           onStart={handleStartSimulation}
           onStop={handleStopSimulation}
+          updateIntervalMs={UPDATE_INTERVAL_MS}
         />
         
         {viewMode === 'panels' ? (
